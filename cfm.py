@@ -7,7 +7,103 @@ class Bank:
         self.netAmount = 0
         self.types = set()
 
+    def minimize_cash_flow(self, num_banks, input_list, graph, max_num_types):
+        # Find net amount of each bank
+        list_of_net_amounts = []
 
+        for b in range(num_banks):
+            net_amount = 0
+
+            # Incoming edges
+            for i in range(num_banks):
+                net_amount += graph[i][b]
+
+            # Outgoing edges
+            for j in range(num_banks):
+                net_amount += (-1 * graph[b][j])
+
+            list_of_net_amounts.append(
+                {'name': input_list[b]['name'], 'netAmount': net_amount, 'types': list(input_list[b]['types'])})
+
+        # Initialize answer graph
+        ans_graph = [[(0, '') for _ in range(num_banks)] for _ in range(num_banks)]
+
+        # Find min and max net amount
+        num_zero_net_amounts = sum(1 for bank in list_of_net_amounts if bank['netAmount'] == 0)
+
+        # While all banks are not settled
+        while num_zero_net_amounts != num_banks:
+            min_index = self.get_min_index(list_of_net_amounts, num_banks)  # Most in debt
+            max_index, max_matching_type = self.get_max_index(list_of_net_amounts, num_banks, min_index, input_list,
+                                                              max_num_types)
+
+            if max_index == -1:
+                amount = ans_graph[min_index][0][0] + abs(list_of_net_amounts[min_index]['netAmount'])
+                ans_graph[min_index][0] = (
+                    amount, list(list_of_net_amounts[min_index]['types'])[0])
+                simple_max_index = self.get_simple_max_index(list_of_net_amounts, num_banks)
+                amount2 = ans_graph[0][simple_max_index][0] + abs(list_of_net_amounts[min_index]['netAmount'])
+                ans_graph[0][simple_max_index] = (amount2,
+                                                  list(list_of_net_amounts[simple_max_index]['types'])[0])
+                list_of_net_amounts[simple_max_index]['netAmount'] += list_of_net_amounts[min_index]['netAmount']
+                list_of_net_amounts[min_index]['netAmount'] = 0
+                num_zero_net_amounts += 1 if list_of_net_amounts[min_index]['netAmount'] == 0 else 0
+                num_zero_net_amounts += 1 if list_of_net_amounts[simple_max_index]['netAmount'] == 0 else 0
+
+            else:
+                transaction_amount = min(abs(list_of_net_amounts[min_index]['netAmount']),
+                                         abs(list_of_net_amounts[max_index]['netAmount']))
+                ans_graph[min_index][max_index] = (transaction_amount, max_matching_type)
+                list_of_net_amounts[min_index]['netAmount'] += transaction_amount
+                list_of_net_amounts[max_index]['netAmount'] -= transaction_amount
+                num_zero_net_amounts += 1 if list_of_net_amounts[min_index]['netAmount'] == 0 else 0
+                num_zero_net_amounts += 1 if list_of_net_amounts[max_index]['netAmount'] == 0 else 0
+
+        return self.print_ans(ans_graph, num_banks, input_list)
+
+    def print_ans(self, ans_graph, num_banks, input_list):
+        final_solution = []
+        print("\n\t\t\t\t********************* FINAL TRANSACTIONS ***********************\n")
+
+        print("\nThe transactions for minimum cash flow are as follows:\n")
+        for i in range(num_banks):
+            for j in range(num_banks):
+
+                if i == j:
+                    continue
+
+                if ans_graph[i][j][0] != 0 and ans_graph[j][i][0] != 0:
+                    if ans_graph[i][j][0] == ans_graph[j][i][0]:
+                        ans_graph[i][j][0] = 0
+                        ans_graph[j][i][0] = 0
+                    elif ans_graph[i][j][0] > ans_graph[j][i][0]:
+                        ans_graph[i][j][0] -= ans_graph[j][i][0]
+                        ans_graph[j][i] = (0, '')  # Convert tuple to list for assignment
+                        statement = f"{input_list[i]['name']} pays Rs {ans_graph[i][j][0]} to {input_list[j]['name']} via {ans_graph[i][j][1]}"
+                        print(statement)
+                        final_solution.append(statement)
+                    else:
+                        ans_graph[j][i][0] -= ans_graph[i][j][0]
+                        ans_graph[i][j] = (0, '')  # Convert tuple to list for assignment
+                        statement = f"{input_list[j]['name']} pays Rs {ans_graph[j][i][0]} to {input_list[i]['name']} via {ans_graph[j][i][1]}"
+                        print(statement)
+                        final_solution.append(statement)
+
+
+                elif ans_graph[i][j][0] != 0:
+                    statement = f"{input_list[i]['name']} pays Rs {ans_graph[i][j][0]} to {input_list[j]['name']} via {ans_graph[i][j][1]}"
+                    print(statement)
+                    final_solution.append(statement)
+
+                elif ans_graph[j][i][0] != 0:
+                    statement = f"{input_list[j]['name']} pays Rs {ans_graph[j][i][0]} to {input_list[i]['name']} via {ans_graph[j][i][1]}"
+                    print(statement)
+                    final_solution.append(statement)
+
+                ans_graph[i][j] = (0, '')  # Convert tuple to list for assignment
+                ans_graph[j][i] = (0, '')  # Convert tuple to list for assignment
+        print("\n")
+        return final_solution
 
     def get_max_index(self, list_of_net_amounts, num_banks, min_index, input_list, max_num_types):
         max_amount = float('-inf')
@@ -55,8 +151,6 @@ class Bank:
 
 
         return max_index
-
-
 
 
 def main():
@@ -111,7 +205,6 @@ def main():
 
     # Call the method minimize_cash_flow on the bank_instance
     bank_instance.minimize_cash_flow(num_banks, input_list, graph, max_num_types)
-
 
 
 if __name__ == "__main__":
